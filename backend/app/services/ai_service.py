@@ -9,7 +9,7 @@ import asyncio
 from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-import openai
+import google.generativeai as genai
 
 from app.config import get_settings
 from app.database import async_session, engine
@@ -21,13 +21,25 @@ logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        self.enabled = settings.has_openai_key
+        self.enabled = settings.has_gemini_key
         if self.enabled:
-            self.client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
-            self.model = settings.openai_model
+            genai.configure(api_key=settings.gemini_api_key)
+            self.model = settings.gemini_model
         else:
-            self.client = None
             self.model = None
+
+    async def generate_content(self, prompt: str, system_instruction: str = None, temperature: float = 0.7) -> str:
+        if not self.enabled:
+            raise ValueError("AI not configured")
+        model = genai.GenerativeModel(
+            self.model,
+            system_instruction=system_instruction
+        )
+        res = await model.generate_content_async(
+            prompt,
+            generation_config=genai.types.GenerationConfig(temperature=temperature)
+        )
+        return res.text.strip()
 
     async def get_db_schema(self) -> str:
         """Get database schema as string for LLM context."""
@@ -50,7 +62,7 @@ class AIService:
     async def ask_data(self, query: str, session_id: str) -> dict[str, Any]:
         """Convert natural language to SQL, execute, and explain."""
         if not self.enabled:
-            return {"error": "AI not configured. Add OpenAI API Key."}
+            return {"error": "AI not configured. Add Gemini API Key."}
 
         schema = await self.get_db_schema()
 
@@ -70,15 +82,11 @@ class AIService:
         """
 
         try:
-            sql_response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a SQL generator."},
-                    {"role": "user", "content": prompt}
-                ],
+            raw_sql = await self.generate_content(
+                prompt=prompt,
+                system_instruction="You are a SQL generator.",
                 temperature=0.1
             )
-            raw_sql = sql_response.choices[0].message.content.strip()
             
             # Clean up markdown if LLM includes it
             if raw_sql.startswith("```sql"):
@@ -126,15 +134,11 @@ class AIService:
         """
 
         try:
-            expl_response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a helpful data analyst."},
-                    {"role": "user", "content": explanation_prompt}
-                ],
+            explanation = await self.generate_content(
+                prompt=explanation_prompt,
+                system_instruction="You are a helpful data analyst.",
                 temperature=0.4
             )
-            explanation = expl_response.choices[0].message.content.strip()
         except Exception as e:
             logger.error(f"Error generating explanation: {str(e)}")
             explanation = "Failed to generate explanation. See data table below."

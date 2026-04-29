@@ -35,4 +35,13 @@ export const recommendationApi = {
   getActions: () => api.get('/recommendations/actions'),
 };
 
+export const customerApi = {
+  getList: (params = {}) => api.get('/customers', { params }),
+  getDetail: (id) => api.get(`/customers/${id}`),
+};
+
+export const productApi = {
+  getList: () => api.get('/products'),
+};
+
 export default api;

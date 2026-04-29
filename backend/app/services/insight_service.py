@@ -110,11 +110,7 @@ class InsightService:
         """
         
         try:
-            res = await ai_service.client.chat.completions.create(
-                model=ai_service.model,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            raw = res.choices[0].message.content.strip()
+            raw = await ai_service.generate_content(prompt)
             
             # Trim markdown if exists
             if raw.startswith("```json"): raw = raw[7:]

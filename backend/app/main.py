@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Decision Intelligence System...")
     logger.info(f"   Environment: {settings.app_env}")
     logger.info(f"   Database: {settings.database_url}")
-    logger.info(f"   OpenAI: {'✅ Configured' if settings.has_openai_key else '❌ Not configured'}")
+    logger.info(f"   AI Engine: {'✅ Configured' if settings.has_gemini_key else '❌ Not configured'}")
 
     # Initialize database tables
     await init_db()
@@ -80,7 +80,7 @@ async def health_check():
         version="1.0.0",
         environment=settings.app_env,
         database="connected",
-        ai_available=settings.has_openai_key,
+        ai_available=settings.has_gemini_key,
     )
 
 
@@ -92,6 +92,8 @@ from app.api.forecasting import router as forecasting_router
 from app.api.segments import router as segments_router
 from app.api.ml import router as ml_router
 from app.api.recommendations import router as recommendations_router
+from app.api.customers import router as customers_router
+from app.api.products import router as products_router
 
 app.include_router(analytics_router)
 app.include_router(chat_router)
@@ -100,6 +102,8 @@ app.include_router(forecasting_router)
 app.include_router(segments_router)
 app.include_router(ml_router)
 app.include_router(recommendations_router)
+app.include_router(customers_router)
+app.include_router(products_router)
 
 
 # ─── Database Info Endpoint ─────────────────────────────────

@@ -8,7 +8,7 @@ import json
 import logging
 import numpy as np
 import faiss
-from openai import AsyncOpenAI
+import google.generativeai as genai
 
 from app.config import get_settings
 
@@ -21,11 +21,11 @@ METADATA_PATH = os.path.join(settings.vector_store_path, "schema_meta.json")
 
 class VectorService:
     def __init__(self):
-        self.enabled = settings.has_openai_key
-        self.dimension = 3072  # text-embedding-3-large default
+        self.enabled = settings.has_gemini_key
+        self.dimension = 768  # text-embedding-004 default
         
         if self.enabled:
-            self.client = AsyncOpenAI(api_key=settings.openai_api_key)
+            genai.configure(api_key=settings.gemini_api_key)
         
         os.makedirs(settings.vector_store_path, exist_ok=True)
         self.index = self._load_or_create_index()
@@ -33,7 +33,11 @@ class VectorService:
 
     def _load_or_create_index(self):
         if os.path.exists(INDEX_PATH):
-            return faiss.read_index(INDEX_PATH)
+            idx = faiss.read_index(INDEX_PATH)
+            if idx.d == self.dimension:
+                return idx
+            else:
+                logger.warning(f"Index dimension mismatch ({idx.d} != {self.dimension}). Recreating index.")
         return faiss.IndexFlatL2(self.dimension)
 
     def _load_metadata(self) -> dict:
@@ -51,11 +55,12 @@ class VectorService:
         if not self.enabled:
             return [0.0] * self.dimension
             
-        res = await self.client.embeddings.create(
-            input=[text],
-            model=settings.openai_embedding_model
+        res = await genai.embed_content_async(
+            model=settings.gemini_embedding_model,
+            content=text,
+            task_type="retrieval_document"
         )
-        return res.data[0].embedding
+        return res["embedding"]
 
     async def add_documents(self, documents: list[dict]):
         """docs is list of dict with 'text' and 'meta'."""
@@ -65,11 +70,12 @@ class VectorService:
         texts = [d["text"] for d in documents]
         
         # Get embeddings
-        res = await self.client.embeddings.create(
-            input=texts,
-            model=settings.openai_embedding_model
+        res = await genai.embed_content_async(
+            model=settings.gemini_embedding_model,
+            content=texts,
+            task_type="retrieval_document"
         )
-        embeddings = np.array([item.embedding for item in res.data]).astype('float32')
+        embeddings = np.array(res["embedding"]).astype('float32')
 
         # Add to index
         self.index.add(embeddings)

@@ -30,10 +30,10 @@ class Settings(BaseSettings):
     # --- Database ---
     database_url: str = "sqlite+aiosqlite:///./data/intelligence.db"
 
-    # --- OpenAI ---
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4.1"
-    openai_embedding_model: str = "text-embedding-3-large"
+    # --- Gemini ---
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3-flash-preview"
+    gemini_embedding_model: str = "models/text-embedding-004"
 
     # --- ML ---
     ml_models_dir: str = "./ml/models"
@@ -51,8 +51,8 @@ class Settings(BaseSettings):
         return self.app_env == "production"
 
     @property
-    def has_openai_key(self) -> bool:
-        return bool(self.openai_api_key) and self.openai_api_key != "sk-your-openai-api-key-here"
+    def has_gemini_key(self) -> bool:
+        return bool(self.gemini_api_key) and self.gemini_api_key != "your-gemini-api-key-here"
 
 
 @lru_cache()
